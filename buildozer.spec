@@ -3,6 +3,7 @@ title = Currency Converter
 package.name = currencyconverter
 package.domain = org.ymnab
 version = 1.0.0
+source.dir = .
 requirements = python3,kivy,requests
 orientation = portrait
 android.sdk_version = 30
