@@ -15,37 +15,44 @@ jobs:
         with:
           python-version: '3.11'
 
-      - name: Install dependencies and Android SDK into Buildozer's expected path
+      - name: Install dependencies, SDK, and Build APK
         run: |
           # System packages
           sudo apt update
           sudo apt install -y git zip unzip openjdk-17-jdk wget
 
           # Create Buildozer's expected SDK directory
-          mkdir -p ~/.buildozer/android/platform/android-sdk
-          cd ~/.buildozer/android/platform/android-sdk
+          SDK_ROOT=~/.buildozer/android/platform/android-sdk
+          mkdir -p $SDK_ROOT
+          cd $SDK_ROOT
 
-          # Download and extract command-line tools
+          # Download command-line tools
           wget -q https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip
           unzip -q commandlinetools-linux-11076708_latest.zip
 
-          # Rename cmdline-tools to tools (Buildozer expects tools/bin/sdkmanager)
-          mv cmdline-tools tools
+          # Create the nested structure Google expects: cmdline-tools/latest
+          mkdir -p cmdline-tools
+          mv cmdline-tools cmdline-tools/latest
+
+          # Create a symlink 'tools' that points to cmdline-tools/latest (Buildozer expects tools/bin/sdkmanager)
+          ln -s cmdline-tools/latest tools
+
+          # Clean up zip
           rm commandlinetools-linux-11076708_latest.zip
 
-          # Set environment variables for this session
-          export ANDROID_HOME=~/.buildozer/android/platform/android-sdk
-          export ANDROID_SDK_ROOT=$ANDROID_HOME
-          export PATH=$PATH:$ANDROID_HOME/tools/bin:$ANDROID_HOME/platform-tools:$ANDROID_HOME/build-tools/30.0.3
+          # Set environment variables
+          export ANDROID_HOME=$SDK_ROOT
+          export ANDROID_SDK_ROOT=$SDK_ROOT
+          export PATH=$PATH:$SDK_ROOT/tools/bin:$SDK_ROOT/platform-tools:$SDK_ROOT/build-tools/30.0.3
 
-          # Accept licenses and install build-tools 30.0.3 (Buildozer's default)
-          yes | sdkmanager --licenses > /dev/null
-          sdkmanager "platform-tools" "build-tools;30.0.3" "platforms;android-33"
+          # Accept licenses and install build-tools 30.0.3 (with explicit --sdk_root)
+          yes | sdkmanager --sdk_root=$SDK_ROOT --licenses > /dev/null
+          sdkmanager --sdk_root=$SDK_ROOT "platform-tools" "build-tools;30.0.3" "platforms;android-33"
 
           # Verify aidl is present
-          ls -la $ANDROID_HOME/build-tools/30.0.3/aidl
+          ls -la $SDK_ROOT/build-tools/30.0.3/aidl
 
-          # Install Python build tools
+          # Install Python packages
           pip install --upgrade pip
           pip install buildozer cython
 
@@ -68,7 +75,7 @@ jobs:
           echo 'android.python_version = 3' >> buildozer.spec
           echo 'android.build_tools_version = 30.0.3' >> buildozer.spec
 
-          # Build the APK
+          # Build the APK (Buildozer will find the SDK via the symlink)
           buildozer -v android debug
 
       - name: Upload APK
