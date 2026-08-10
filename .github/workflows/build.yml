@@ -15,87 +15,77 @@ jobs:
         with:
           python-version: '3.11'
 
-      - name: Install dependencies and Android SDK
+      - name: Install system dependencies and prepare SDK
         run: |
-          # System packages
           sudo apt update
-          sudo apt install -y git zip unzip openjdk-17-jdk wget
+          sudo apt install -y git zip unzip openjdk-17-jdk
 
-          # Create Buildozer's expected SDK directory
-          SDK_ROOT=~/.buildozer/android/platform/android-sdk
-          mkdir -p $SDK_ROOT
-          cd $SDK_ROOT
+          # Use the pre‑installed SDK (no downloading)
+          export ANDROID_HOME=/usr/local/lib/android/sdk
+          export ANDROID_SDK_ROOT=$ANDROID_HOME
+          export PATH=$PATH:$ANDROID_HOME/tools/bin:$ANDROID_HOME/platform-tools:$ANDROID_HOME/build-tools/30.0.3
 
-          # Download command-line tools
-          wget -q https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip
-
-          # Extract to a temporary folder
-          mkdir -p temp
-          unzip -q commandlinetools-linux-11076708_latest.zip -d temp
-          mkdir -p cmdline-tools
-          mv temp/cmdline-tools cmdline-tools/latest
-          rm -rf temp
-
-          # Create symlink 'tools' that Buildozer expects
-          ln -s cmdline-tools/latest tools
-          rm commandlinetools-linux-11076708_latest.zip
-
-          # Set environment variables for this step
-          export ANDROID_HOME=$SDK_ROOT
-          export ANDROID_SDK_ROOT=$SDK_ROOT
-          export PATH=$PATH:$SDK_ROOT/tools/bin:$SDK_ROOT/platform-tools:$SDK_ROOT/build-tools/30.0.3
-
-          # Accept licenses and install build-tools 30.0.3
-          yes | sdkmanager --sdk_root=$SDK_ROOT --licenses > /dev/null
-          sdkmanager --sdk_root=$SDK_ROOT "platform-tools" "build-tools;30.0.3" "platforms;android-33"
+          # Install build-tools 30.0.3 if not already present
+          if [ ! -d $ANDROID_HOME/build-tools/30.0.3 ]; then
+            yes | sdkmanager --licenses > /dev/null
+            sdkmanager "build-tools;30.0.3" "platforms;android-33"
+          fi
 
           # Verify aidl is present
-          ls -la $SDK_ROOT/build-tools/30.0.3/aidl || echo "aidl not found!"
+          ls -la $ANDROID_HOME/build-tools/30.0.3/aidl
 
-          # Install Python packages
+          # Downgrade pip to avoid BuildDependencyInstallError
           pip install --upgrade pip
+          pip install pip==21.0
           pip install buildozer cython
 
       - name: Create buildozer.spec
         run: |
-          echo '[app]' > buildozer.spec
-          echo 'title = Currency Converter' >> buildozer.spec
-          echo 'package.name = currencyconverter' >> buildozer.spec
-          echo 'package.domain = org.ymnab' >> buildozer.spec
-          echo 'version = 1.0.0' >> buildozer.spec
-          echo 'source.dir = .' >> buildozer.spec
-          echo 'requirements = python3,kivy,requests' >> buildozer.spec
-          echo 'orientation = portrait' >> buildozer.spec
-          echo 'android.sdk_version = 30' >> buildozer.spec
-          echo 'android.ndk_version = 23b' >> buildozer.spec
-          echo 'android.permissions = INTERNET' >> buildozer.spec
-          echo 'android.enable_androidx = True' >> buildozer.spec
-          echo 'android.min_sdk_version = 21' >> buildozer.spec
-          echo 'android.target_sdk_version = 30' >> buildozer.spec
-          echo 'android.ndk_abi = arm64-v8a' >> buildozer.spec
-          echo 'android.python_version = 3' >> buildozer.spec
-          echo 'android.build_tools_version = 30.0.3' >> buildozer.spec
+          cat > buildozer.spec << 'SPEC'
+          [app]
+          title = Currency Converter
+          package.name = currencyconverter
+          package.domain = org.ymnab
+          version = 1.0.0
+          source.dir = .
+          requirements = python3,kivy,requests
+          orientation = portrait
+          android.sdk_version = 30
+          android.ndk_version = 23b
+          android.permissions = INTERNET
+          android.enable_androidx = True
+          android.min_sdk_version = 21
+          android.target_sdk_version = 30
+          android.ndk_abi = arm64-v8a
+          android.python_version = 3
+          android.build_tools_version = 30.0.3
+          SPEC
 
-      - name: Build APK and capture log
+      - name: Build APK and capture full log
         id: build
         run: |
-          # Run build and capture output
+          # Set environment variables for the build
+          export ANDROID_HOME=/usr/local/lib/android/sdk
+          export ANDROID_SDK_ROOT=$ANDROID_HOME
+          export PATH=$PATH:$ANDROID_HOME/tools/bin:$ANDROID_HOME/platform-tools:$ANDROID_HOME/build-tools/30.0.3
+
+          # Run build and save all output
           buildozer -v android debug 2>&1 | tee build.log
-          # If it fails, keep the log but exit with the build's exit code
+          # Preserve the exit code
           exit ${PIPESTATUS[0]}
 
-      - name: Upload full build log
+      - name: Upload full build log (always)
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: BuildLog
           path: build.log
 
-      - name: Print last 100 lines of log (debug)
+      - name: Print last 100 lines of log (debug on failure)
         if: failure()
         run: tail -n 100 build.log
 
-      - name: Upload APK
+      - name: Upload APK (on success)
         if: success()
         uses: actions/upload-artifact@v4
         with:
