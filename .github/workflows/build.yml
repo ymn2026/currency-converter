@@ -30,9 +30,13 @@ jobs:
           wget -q https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip
           unzip -q commandlinetools-linux-11076708_latest.zip
 
-          # Create the nested structure Google expects: cmdline-tools/latest
-          mkdir -p cmdline-tools
-          mv cmdline-tools cmdline-tools/latest
+          # Now we have a folder 'cmdline-tools'
+          # Create the nested structure: cmdline-tools/latest
+          mkdir -p cmdline-tools/latest
+          # Move everything from the extracted folder into cmdline-tools/latest
+          mv cmdline-tools/* cmdline-tools/latest/
+          # Remove the now-empty outer folder
+          rmdir cmdline-tools
 
           # Create a symlink 'tools' that points to cmdline-tools/latest (Buildozer expects tools/bin/sdkmanager)
           ln -s cmdline-tools/latest tools
@@ -75,7 +79,7 @@ jobs:
           echo 'android.python_version = 3' >> buildozer.spec
           echo 'android.build_tools_version = 30.0.3' >> buildozer.spec
 
-          # Build the APK (Buildozer will find the SDK via the symlink)
+          # Build the APK
           buildozer -v android debug
 
       - name: Upload APK
