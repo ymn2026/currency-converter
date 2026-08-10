@@ -17,7 +17,7 @@ jobs:
             -v $(pwd):/app \
             -w /app \
             kivy/buildozer:latest \
-            buildozer -v android debug
+            -v android debug
 
       - name: Upload APK
         if: success()
