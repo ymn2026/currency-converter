@@ -15,34 +15,39 @@ jobs:
         with:
           python-version: '3.11'
 
-      - name: Install dependencies, SDK, and Build APK
+      - name: Install dependencies and Android SDK into Buildozer's path
         run: |
           # System packages
           sudo apt update
           sudo apt install -y git zip unzip openjdk-17-jdk wget
 
-          # Install Android SDK
-          mkdir -p $HOME/android-sdk/cmdline-tools
-          cd $HOME/android-sdk/cmdline-tools
+          # Create Buildozer's expected SDK directory
+          mkdir -p ~/.buildozer/android/platform/android-sdk/cmdline-tools
+          cd ~/.buildozer/android/platform/android-sdk/cmdline-tools
+
+          # Download and extract command-line tools
           wget -q https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip
           unzip -q commandlinetools-linux-11076708_latest.zip
           mv cmdline-tools latest
           rm commandlinetools-linux-11076708_latest.zip
 
-          export ANDROID_HOME=$HOME/android-sdk
-          export ANDROID_SDK_ROOT=$HOME/android-sdk
-          export PATH=$PATH:$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools:$ANDROID_HOME/build-tools/34.0.0
+          # Set environment variables for this session
+          export ANDROID_HOME=~/.buildozer/android/platform/android-sdk
+          export ANDROID_SDK_ROOT=$ANDROID_HOME
+          export PATH=$PATH:$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools:$ANDROID_HOME/build-tools/30.0.3
 
+          # Accept licenses and install build-tools 30.0.3 (Buildozer's default)
           yes | sdkmanager --licenses > /dev/null
-          sdkmanager "platform-tools" "build-tools;34.0.0" "platforms;android-33"
+          sdkmanager "platform-tools" "build-tools;30.0.3" "platforms;android-33"
 
-          # Verify aidl
-          ls -la $ANDROID_HOME/build-tools/34.0.0/aidl
+          # Verify aidl is present
+          ls -la $ANDROID_HOME/build-tools/30.0.3/aidl
 
+          # Install Python build tools
           pip install --upgrade pip
           pip install buildozer cython
 
-          # Create buildozer.spec using echo (no heredoc)
+          # Create buildozer.spec
           echo '[app]' > buildozer.spec
           echo 'title = Currency Converter' >> buildozer.spec
           echo 'package.name = currencyconverter' >> buildozer.spec
@@ -59,12 +64,9 @@ jobs:
           echo 'android.target_sdk_version = 30' >> buildozer.spec
           echo 'android.ndk_abi = arm64-v8a' >> buildozer.spec
           echo 'android.python_version = 3' >> buildozer.spec
-          echo 'android.build_tools_version = 34.0.0' >> buildozer.spec
+          echo 'android.build_tools_version = 30.0.3' >> buildozer.spec
 
-          # List files (debug)
-          ls -la
-
-          # Build
+          # Build the APK
           buildozer -v android debug
 
       - name: Upload APK
