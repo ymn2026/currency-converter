@@ -1,8 +1,9 @@
-name: Build APK
+name: Build APK with Docker
 
 on:
   push:
     branches: [ main ]
+  workflow_dispatch:
 
 jobs:
   build:
@@ -10,82 +11,15 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Set up Python 3.11
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
-
-      - name: Install system dependencies and prepare SDK
+      - name: Build APK inside Docker
         run: |
-          sudo apt update
-          sudo apt install -y git zip unzip openjdk-17-jdk
+          docker run --rm \
+            -v $(pwd):/app \
+            -w /app \
+            kivy/buildozer:latest \
+            buildozer -v android debug
 
-          # Use the pre‑installed SDK (no downloading)
-          export ANDROID_HOME=/usr/local/lib/android/sdk
-          export ANDROID_SDK_ROOT=$ANDROID_HOME
-          export PATH=$PATH:$ANDROID_HOME/tools/bin:$ANDROID_HOME/platform-tools:$ANDROID_HOME/build-tools/30.0.3
-
-          # Install build-tools 30.0.3 if not already present
-          if [ ! -d $ANDROID_HOME/build-tools/30.0.3 ]; then
-            yes | sdkmanager --licenses > /dev/null
-            sdkmanager "build-tools;30.0.3" "platforms;android-33"
-          fi
-
-          # Verify aidl is present
-          ls -la $ANDROID_HOME/build-tools/30.0.3/aidl
-
-          # Downgrade pip to avoid BuildDependencyInstallError
-          pip install --upgrade pip
-          pip install pip==21.0
-          pip install buildozer cython
-
-      - name: Create buildozer.spec
-        run: |
-          cat > buildozer.spec << 'SPEC'
-          [app]
-          title = Currency Converter
-          package.name = currencyconverter
-          package.domain = org.ymnab
-          version = 1.0.0
-          source.dir = .
-          requirements = python3,kivy,requests
-          orientation = portrait
-          android.sdk_version = 30
-          android.ndk_version = 23b
-          android.permissions = INTERNET
-          android.enable_androidx = True
-          android.min_sdk_version = 21
-          android.target_sdk_version = 30
-          android.ndk_abi = arm64-v8a
-          android.python_version = 3
-          android.build_tools_version = 30.0.3
-          SPEC
-
-      - name: Build APK and capture full log
-        id: build
-        run: |
-          # Set environment variables for the build
-          export ANDROID_HOME=/usr/local/lib/android/sdk
-          export ANDROID_SDK_ROOT=$ANDROID_HOME
-          export PATH=$PATH:$ANDROID_HOME/tools/bin:$ANDROID_HOME/platform-tools:$ANDROID_HOME/build-tools/30.0.3
-
-          # Run build and save all output
-          buildozer -v android debug 2>&1 | tee build.log
-          # Preserve the exit code
-          exit ${PIPESTATUS[0]}
-
-      - name: Upload full build log (always)
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: BuildLog
-          path: build.log
-
-      - name: Print last 100 lines of log (debug on failure)
-        if: failure()
-        run: tail -n 100 build.log
-
-      - name: Upload APK (on success)
+      - name: Upload APK
         if: success()
         uses: actions/upload-artifact@v4
         with:
