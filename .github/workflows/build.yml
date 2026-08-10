@@ -16,8 +16,15 @@ jobs:
           docker run --rm \
             -v $(pwd):/app \
             -w /app \
-            ymorin/buildozer:latest \
-            buildozer -v android debug
+            --entrypoint bash \
+            kivy/buildozer:latest \
+            -c "
+              export ANDROID_HOME=/opt/android-sdk
+              export PATH=\$PATH:\$ANDROID_HOME/tools/bin:\$ANDROID_HOME/platform-tools:\$ANDROID_HOME/build-tools/30.0.3
+              yes | sdkmanager --licenses
+              sdkmanager 'build-tools;30.0.3' 'platforms;android-33'
+              yes | buildozer -v android debug
+            "
 
       - name: Upload APK
         if: success()
