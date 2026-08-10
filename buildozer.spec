@@ -1,4 +1,3 @@
-[app]
 title = Currency Converter
 package.name = currencyconverter
 package.domain = org.ymnab
