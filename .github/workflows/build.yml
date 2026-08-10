@@ -30,8 +30,13 @@ jobs:
           wget -q https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip
           unzip -q commandlinetools-linux-11076708_latest.zip
 
-          # Rename cmdline-tools to tools (Buildozer expects tools/bin/sdkmanager)
-          mv cmdline-tools tools
+          # Create the nested structure: cmdline-tools/latest
+          mkdir -p cmdline-tools
+          mv cmdline-tools cmdline-tools/latest
+          rmdir cmdline-tools
+
+          # Create symlink 'tools' for Buildozer
+          ln -s cmdline-tools/latest tools
           rm commandlinetools-linux-11076708_latest.zip
 
           # Set environment variables
@@ -39,12 +44,9 @@ jobs:
           export ANDROID_SDK_ROOT=$SDK_ROOT
           export PATH=$PATH:$SDK_ROOT/tools/bin:$SDK_ROOT/platform-tools:$SDK_ROOT/build-tools/30.0.3
 
-          # Accept licenses and install build-tools 30.0.3 (with explicit --sdk_root)
+          # Accept licenses and install build-tools 30.0.3
           yes | sdkmanager --sdk_root=$SDK_ROOT --licenses > /dev/null
           sdkmanager --sdk_root=$SDK_ROOT "platform-tools" "build-tools;30.0.3" "platforms;android-33"
-
-          # Verify aidl is present
-          ls -la $SDK_ROOT/build-tools/30.0.3/aidl
 
           # Install Python packages
           pip install --upgrade pip
@@ -69,8 +71,15 @@ jobs:
           echo 'android.python_version = 3' >> buildozer.spec
           echo 'android.build_tools_version = 30.0.3' >> buildozer.spec
 
-          # Build the APK
-          buildozer -v android debug
+          # Build and capture log
+          buildozer -v android debug 2>&1 | tee build.log
+
+      - name: Upload full build log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: BuildLog
+          path: build.log
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
