@@ -1,0 +1,15 @@
+[app]
+title = Currency Converter
+package.name = currencyconverter
+package.domain = org.ymnab
+version = 1.0.0
+requirements = python3,kivy,requests
+orientation = portrait
+android.sdk_version = 30
+android.ndk_version = 23b
+android.permissions = INTERNET
+android.enable_androidx = True
+android.min_sdk_version = 21
+android.target_sdk_version = 30
+android.ndk_abi = arm64-v8a
+android.python_version = 3
