@@ -15,7 +15,7 @@ jobs:
         with:
           python-version: '3.11'
 
-      - name: Install dependencies, SDK, and Build APK
+      - name: Install dependencies and Android SDK
         run: |
           # System packages
           sudo apt update
@@ -32,20 +32,15 @@ jobs:
           # Extract to a temporary folder
           mkdir -p temp
           unzip -q commandlinetools-linux-11076708_latest.zip -d temp
-
-          # Now temp/ contains cmdline-tools/
-          # Create the nested structure: cmdline-tools/latest/
           mkdir -p cmdline-tools
           mv temp/cmdline-tools cmdline-tools/latest
           rm -rf temp
 
-          # Create symlink 'tools' that Buildozer expects (points to cmdline-tools/latest)
+          # Create symlink 'tools' that Buildozer expects
           ln -s cmdline-tools/latest tools
-
-          # Clean up zip
           rm commandlinetools-linux-11076708_latest.zip
 
-          # Set environment variables
+          # Set environment variables for this step
           export ANDROID_HOME=$SDK_ROOT
           export ANDROID_SDK_ROOT=$SDK_ROOT
           export PATH=$PATH:$SDK_ROOT/tools/bin:$SDK_ROOT/platform-tools:$SDK_ROOT/build-tools/30.0.3
@@ -55,13 +50,14 @@ jobs:
           sdkmanager --sdk_root=$SDK_ROOT "platform-tools" "build-tools;30.0.3" "platforms;android-33"
 
           # Verify aidl is present
-          ls -la $SDK_ROOT/build-tools/30.0.3/aidl
+          ls -la $SDK_ROOT/build-tools/30.0.3/aidl || echo "aidl not found!"
 
           # Install Python packages
           pip install --upgrade pip
           pip install buildozer cython
 
-          # Create buildozer.spec
+      - name: Create buildozer.spec
+        run: |
           echo '[app]' > buildozer.spec
           echo 'title = Currency Converter' >> buildozer.spec
           echo 'package.name = currencyconverter' >> buildozer.spec
@@ -80,10 +76,27 @@ jobs:
           echo 'android.python_version = 3' >> buildozer.spec
           echo 'android.build_tools_version = 30.0.3' >> buildozer.spec
 
-          # Build the APK
-          buildozer -v android debug
+      - name: Build APK and capture log
+        id: build
+        run: |
+          # Run build and capture output
+          buildozer -v android debug 2>&1 | tee build.log
+          # If it fails, keep the log but exit with the build's exit code
+          exit ${PIPESTATUS[0]}
+
+      - name: Upload full build log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: BuildLog
+          path: build.log
+
+      - name: Print last 100 lines of log (debug)
+        if: failure()
+        run: tail -n 100 build.log
 
       - name: Upload APK
+        if: success()
         uses: actions/upload-artifact@v4
         with:
           name: CurrencyConverter
