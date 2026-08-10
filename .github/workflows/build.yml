@@ -30,18 +30,8 @@ jobs:
           wget -q https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip
           unzip -q commandlinetools-linux-11076708_latest.zip
 
-          # Now we have a folder 'cmdline-tools'
-          # Create the nested structure: cmdline-tools/latest
-          mkdir -p cmdline-tools/latest
-          # Move everything from the extracted folder into cmdline-tools/latest
-          mv cmdline-tools/* cmdline-tools/latest/
-          # Remove the now-empty outer folder
-          rmdir cmdline-tools
-
-          # Create a symlink 'tools' that points to cmdline-tools/latest (Buildozer expects tools/bin/sdkmanager)
-          ln -s cmdline-tools/latest tools
-
-          # Clean up zip
+          # Rename cmdline-tools to tools (Buildozer expects tools/bin/sdkmanager)
+          mv cmdline-tools tools
           rm commandlinetools-linux-11076708_latest.zip
 
           # Set environment variables
