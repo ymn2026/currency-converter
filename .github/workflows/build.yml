@@ -15,7 +15,7 @@ jobs:
         with:
           python-version: '3.11'
 
-      - name: Install dependencies and Android SDK, then build
+      - name: Install dependencies and Android SDK
         run: |
           sudo apt update
           sudo apt install -y git zip unzip openjdk-17-jdk wget
@@ -29,7 +29,7 @@ jobs:
 
           export ANDROID_HOME=$HOME/android-sdk
           export ANDROID_SDK_ROOT=$HOME/android-sdk
-          export PATH=$PATH:$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools:$ANDROID_HOME/build-tools/37.0.0
+          export PATH=$PATH:$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools
 
           yes | sdkmanager --licenses > /dev/null
           sdkmanager "platform-tools" "build-tools;37.0.0" "platforms;android-33"
@@ -37,6 +37,32 @@ jobs:
           pip install --upgrade pip
           pip install buildozer cython
 
+      - name: Create buildozer.spec and build APK
+        run: |
+          # Create the spec file directly in the repository root
+          cat > buildozer.spec << 'SPEC'
+[app]
+title = Currency Converter
+package.name = currencyconverter
+package.domain = org.ymnab
+version = 1.0.0
+source.dir = .
+requirements = python3,kivy,requests
+orientation = portrait
+android.sdk_version = 30
+android.ndk_version = 23b
+android.permissions = INTERNET
+android.enable_androidx = True
+android.min_sdk_version = 21
+android.target_sdk_version = 30
+android.ndk_abi = arm64-v8a
+android.python_version = 3
+SPEC
+
+          # List files to confirm
+          ls -la
+
+          # Build
           buildozer -v android debug
 
       - name: Upload APK
